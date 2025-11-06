@@ -527,6 +527,40 @@ app.get('/api/documents/:documentId/tracking-summary', (req, res) => {
     timeline: events.slice(0, 50)
   });
 });
+// ============================================
+// EMAIL SUMMARY ENDPOINT (PERSISTENT DASHBOARD)
+// ============================================
+
+app.get('/api/emails', (req, res) => {
+  const rows = sqlDb.prepare(`
+    SELECT
+      e.id               AS emailId,
+      e.documentId       AS documentId,
+      e.recipientId      AS recipientId,
+      e.recipientEmail   AS recipientEmail,
+      e.recipientName    AS recipientName,
+      e.subject          AS subject,
+      e.documentName     AS documentName,
+      e.sentAt           AS sentAt,
+
+      -- aggregated stats from events
+      COALESCE(SUM(CASE WHEN ev.type = 'document_opened'     THEN 1 ELSE 0 END), 0) AS openCount,
+      MAX(CASE WHEN ev.type = 'document_opened'              THEN ev.timestamp END)  AS lastOpenAt,
+      COALESCE(SUM(CASE WHEN ev.type = 'document_downloaded' THEN 1 ELSE 0 END), 0) AS downloadCount,
+      COALESCE(SUM(CASE WHEN ev.type = 'document_printed'    THEN 1 ELSE 0 END), 0) AS printCount,
+      COALESCE(SUM(CASE WHEN ev.type = 'document_forwarded'  THEN 1 ELSE 0 END), 0) AS forwardCount
+    FROM emails e
+    LEFT JOIN events ev
+      ON ev.documentId = e.documentId
+     AND ev.recipientId = e.recipientId
+    GROUP BY e.id
+    ORDER BY datetime(e.sentAt) DESC
+    LIMIT 200;
+  `).all();
+
+  res.json({ emails: rows });
+});
+
 
 // Get all alerts
 app.get('/api/alerts', (req, res) => {
