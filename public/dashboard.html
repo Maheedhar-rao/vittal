@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📍 PDF Tracking Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #0f1419;
+            color: #fff;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        header {
+            padding: 20px;
+            background: #1a1f2e;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border: 1px solid #333;
+        }
+
+        header h1 {
+            font-size: 28px;
+            margin-bottom: 5px;
+        }
+
+        header p {
+            color: #888;
+            margin: 0;
+        }
+
+        .status-bar {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-box {
+            background: #1a1f2e;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 32px;
+            font-weight: bold;
+            color: #4f46e5;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #888;
+            text-transform: uppercase;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        @media (max-width: 1024px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .panel {
+            background: #1a1f2e;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 20px;
+        }
+
+        .panel h2 {
+            font-size: 18px;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #4f46e5;
+        }
+
+        .event-item {
+            background: #242a38;
+            padding: 15px;
+            margin-bottom: 12px;
+            border-radius: 6px;
+            border-left: 4px solid #4f46e5;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        .event-time {
+            color: #888;
+            font-size: 11px;
+            margin-top: 8px;
+        }
+
+        .alert-item {
+            background: #7c2d12;
+            border-left: 4px solid #f97316;
+            padding: 15px;
+            margin-bottom: 12px;
+            border-radius: 6px;
+            font-size: 13px;
+        }
+
+        .alert-item.critical {
+            background: #7c1d1d;
+            border-left-color: #ef4444;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #888;
+        }
+
+        .dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #10b981;
+            margin-right: 8px;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: #1a1f2e;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 30px;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        .close-btn {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            cursor: pointer;
+            font-size: 24px;
+            color: #888;
+            background: none;
+            border: none;
+            padding: 0;
+        }
+
+        .close-btn:hover {
+            color: #fff;
+        }
+
+        h3 {
+            color: #4f46e5;
+            margin-top: 0;
+            margin-bottom: 15px;
+        }
+
+        .modal-content > div {
+            margin-bottom: 15px;
+        }
+
+        .modal-content strong {
+            color: #4f46e5;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📍 Real-Time PDF Tracking Dashboard</h1>
+            <p>Live monitoring and instant alerts for all document access</p>
+        </header>
+
+        <!-- Status Bars -->
+        <div class="status-bar">
+            <div class="stat-box">
+                <div class="stat-value"><span class="dot"></span><span id="total-events">0</span></div>
+                <div class="stat-label">Total Events</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value" id="high-risk-count">0</div>
+                <div class="stat-label">High Risk Events</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value" id="alerts-count">0</div>
+                <div class="stat-label">Active Alerts</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value" id="incidents-count">0</div>
+                <div class="stat-label">Incidents</div>
+            </div>
+        </div>
+
+        <!-- Main Grid -->
+        <div class="grid">
+            <!-- Live Events -->
+            <div class="panel">
+                <h2>📊 Live Event Stream</h2>
+                <div id="events-container" class="loading">Connecting to server...</div>
+            </div>
+
+            <!-- Alerts -->
+            <div class="panel">
+                <h2>🚨 Active Alerts</h2>
+                <div id="alerts-container" class="loading">Waiting for alerts...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Alert Modal -->
+    <div id="alert-modal" class="modal">
+        <div class="modal-content">
+            <button class="close-btn" onclick="document.getElementById('alert-modal').classList.remove('active')">×</button>
+            <div id="modal-content"></div>
+        </div>
+    </div>
+
+    <script>
+        /**
+         * DASHBOARD CLIENT
+         * Connects to WebSocket and displays real-time tracking events
+         */
+
+        class Dashboard {
+            constructor() {
+                this.events = [];
+                this.alerts = [];
+                this.ws = null;
+                this.maxEvents = 100;
+                this.maxAlerts = 50;
+                
+                this.init();
+            }
+
+            init() {
+                console.log('🚀 Initializing dashboard');
+                this.connectWebSocket();
+                
+                // Request notification permission
+                if ('Notification' in window && Notification.permission === 'default') {
+                    Notification.requestPermission();
+                }
+            }
+
+            connectWebSocket() {
+                const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+                const host = window.location.host;
+                const url = `${protocol}://${host}`;
+
+                console.log('Connecting to:', url);
+                this.ws = new WebSocket(url);
+
+                this.ws.addEventListener('open', () => {
+                    console.log('✅ Connected to tracking server');
+                    this.updateStatus('Connected');
+                });
+
+                this.ws.addEventListener('message', (event) => {
+                    try {
+                        const data = JSON.parse(event.data);
+                        this.handleServerMessage(data);
+                    } catch (e) {
+                        console.error('Message parse error:', e);
+                    }
+                });
+
+                this.ws.addEventListener('close', () => {
+                    console.log('❌ Disconnected from server');
+                    this.updateStatus('Disconnected');
+                    setTimeout(() => this.connectWebSocket(), 5000);
+                });
+
+                this.ws.addEventListener('error', (error) => {
+                    console.error('WebSocket error:', error);
+                });
+            }
+
+            handleServerMessage(data) {
+                switch(data.type) {
+                    case 'TRACKING_EVENT':
+                    case 'DOCUMENT_OPENED':
+                    case 'PAGE_VIEWED':
+                    case 'COPY_DETECTED':
+                        this.addEvent(data.event);
+                        break;
+                    case 'DOWNLOAD_ALERT':
+                        this.addAlert(data.alert || { message: '⬇️ Document downloaded' }, 'high');
+                        break;
+                    case 'CRITICAL_ALERT':
+                        this.showCriticalAlert(data);
+                        break;
+                    case 'UNAUTHORIZED_SHARE_ALERT':
+                        this.showUnauthorizedShareAlert(data);
+                        break;
+                    case 'ANOMALY_DETECTED':
+                        this.addAlert({
+                            message: `⚠️ ${data.anomalies[0]?.message || 'Anomaly detected'}`
+                        }, 'medium');
+                        break;
+                    case 'CONNECTED':
+                        console.log('Dashboard connected. Initial data:', data.data);
+                        break;
+                }
+
+                this.updateStats();
+            }
+
+            addEvent(event) {
+                this.events.unshift(event);
+                if (this.events.length > this.maxEvents) {
+                    this.events.pop();
+                }
+                this.renderEvents();
+            }
+
+            addAlert(alert, severity = 'low') {
+                this.alerts.unshift({ 
+                    ...alert, 
+                    severity,
+                    id: Math.random().toString(36),
+                    timestamp: new Date().toISOString()
+                });
+                if (this.alerts.length > this.maxAlerts) {
+                    this.alerts.pop();
+                }
+                this.renderAlerts();
+            }
+
+            showCriticalAlert(data) {
+                const message = data.message || 'CRITICAL: Document accessed in suspicious manner';
+                
+                this.playSound('critical');
+                this.showNotification(message, 'critical');
+                this.addAlert(data.alert || { message }, 'critical');
+
+                // Show modal
+                this.showModal({
+                    title: '🚨 CRITICAL ALERT',
+                    content: this.formatAlertModal(data.event)
+                });
+            }
+
+            showUnauthorizedShareAlert(data) {
+                const message = `🚨 Document forwarded to: ${data.event?.forwardedTo}`;
+                
+                this.playSound('critical');
+                this.showNotification(message, 'critical');
+                
+                this.showModal({
+                    title: '🚨 UNAUTHORIZED SHARE',
+                    content: `
+                        <p style="color: #ef4444; margin-bottom: 15px;">⚠️ ${message}</p>
+                        ${this.formatAlertModal(data.event)}
+                    `
+                });
+            }
+
+            formatAlertModal(event) {
+                if (!event) return '';
+                
+                return `
+                    <div><strong>Document ID:</strong> ${event.documentId}</div>
+                    <div><strong>Recipient:</strong> ${event.recipientId}</div>
+                    <div><strong>Location:</strong> ${event.location}</div>
+                    <div><strong>Device:</strong> ${event.device}</div>
+                    <div><strong>IP Address:</strong> ${event.ipAddress}</div>
+                    <div><strong>Time:</strong> ${new Date(event.timestamp).toLocaleString()}</div>
+                `;
+            }
+
+            showModal(config) {
+                const modal = document.getElementById('alert-modal');
+                const content = document.getElementById('modal-content');
+                
+                content.innerHTML = `
+                    <h3>${config.title}</h3>
+                    ${config.content}
+                `;
+                
+                modal.classList.add('active');
+            }
+
+            renderEvents() {
+                const container = document.getElementById('events-container');
+                
+                if (this.events.length === 0) {
+                    container.innerHTML = '<div class="loading">Waiting for events...</div>';
+                    return;
+                }
+
+                const html = this.events.slice(0, 20).map(e => `
+                    <div class="event-item">
+                        <strong>${this.getEventLabel(e.type)}</strong>
+                        <div style="color: #aaa; margin-top: 5px;">
+                            📍 ${e.location || 'Unknown'}
+                            <br/>
+                            🖥️ ${e.device || 'Unknown'}
+                        </div>
+                        <div class="event-time">${new Date(e.timestamp).toLocaleTimeString()}</div>
+                    </div>
+                `).join('');
+
+                container.innerHTML = html;
+            }
+
+            renderAlerts() {
+                const container = document.getElementById('alerts-container');
+                
+                if (this.alerts.length === 0) {
+                    container.innerHTML = '<div class="loading">No alerts yet</div>';
+                    return;
+                }
+
+                const html = this.alerts.slice(0, 15).map(a => `
+                    <div class="alert-item ${a.severity === 'critical' ? 'critical' : ''}">
+                        <strong>${a.severity.toUpperCase()}</strong>
+                        <div style="margin-top: 5px;">${a.message}</div>
+                        <div class="event-time">${new Date(a.timestamp).toLocaleTimeString()}</div>
+                    </div>
+                `).join('');
+
+                container.innerHTML = html;
+            }
+
+            getEventLabel(type) {
+                const labels = {
+                    'document_opened': '👀 Document Opened',
+                    'document_downloaded': '⬇️ Downloaded',
+                    'document_printed': '🖨️ Printed',
+                    'document_forwarded': '↪️ Forwarded',
+                    'page_viewed': '📄 Page Viewed',
+                    'copy_attempt': '📋 Copy Attempt',
+                    'pixel_beacon': '📍 Pixel Beacon'
+                };
+                return labels[type] || type;
+            }
+
+            updateStats() {
+                document.getElementById('total-events').textContent = this.events.length;
+                document.getElementById('alerts-count').textContent = this.alerts.length;
+                document.getElementById('high-risk-count').textContent = 
+                    this.events.filter(e => e.risk === 'high' || e.risk === 'critical').length;
+            }
+
+            updateStatus(status) {
+                // Update connection status if needed
+                console.log('Status:', status);
+            }
+
+            playSound(type) {
+                try {
+                    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    const oscillator = audioContext.createOscillator();
+                    const gainNode = audioContext.createGain();
+
+                    oscillator.connect(gainNode);
+                    gainNode.connect(audioContext.destination);
+
+                    if (type === 'critical') {
+                        oscillator.frequency.value = 1000;
+                        gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+                        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+                        oscillator.start(audioContext.currentTime);
+                        oscillator.stop(audioContext.currentTime + 0.5);
+                    }
+                } catch (e) {
+                    console.warn('Audio error:', e);
+                }
+            }
+
+            showNotification(message, type = 'info') {
+                if ('Notification' in window && Notification.permission === 'granted') {
+                    new Notification('PDF Tracker Alert', {
+                        body: message,
+                        icon: type === 'critical' ? '🚨' : '📍',
+                        requireInteraction: type === 'critical'
+                    });
+                }
+            }
+        }
+
+        // Initialize dashboard when page loads
+        window.addEventListener('load', () => {
+            new Dashboard();
+        });
+    </script>
+</body>
+</html>
