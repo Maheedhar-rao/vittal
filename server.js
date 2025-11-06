@@ -5,8 +5,11 @@ const crypto = require('crypto');
 const geoip = require('geoip-lite');
 const cors = require('cors');
 const bodyParser = require('body-parser');
+const path = require('path');
 require('dotenv').config();
 
+
+const SERVER_URL = process.env.SERVER_URL || 'http://localhost:3000';
 // DB init
 const { initDatabase, DB_PATH } = require('./init-db');
 const Database = require('better-sqlite3');
@@ -569,6 +572,10 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+app.get('/pdf-client-tracker.js', (req, res) => {
+  res.sendFile(path.join(__dirname, 'pdf-client-tracker.js'));
+}); 
+
 // ============================================
 // WEBSOCKET: REAL-TIME DASHBOARD
 // ============================================
@@ -605,6 +612,171 @@ wss.on('connection', (ws) => {
     clients.delete(ws);
   });
 });
+
+// ============================================
+// DOCUMENT VIEWER ROUTE
+// ============================================
+
+app.get('/documents/:documentId', (req, res) => {
+  const { documentId } = req.params;
+  const { recipient, name } = req.query;
+
+  const documentName = name || 'Secure Document';
+  const recipientId = recipient || 'anonymous';
+
+  res.send(`
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>${documentName} - Secure Viewer</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0f172a;
+      color: #e5e7eb;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      min-height: 100vh;
+      justify-content: center;
+      align-items: center;
+    }
+    .container {
+      background: #020617;
+      border-radius: 16px;
+      padding: 24px 28px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+      max-width: 640px;
+      width: 100%;
+      border: 1px solid #1e293b;
+    }
+    h1 {
+      margin: 0 0 8px;
+      font-size: 20px;
+      color: #e5e7eb;
+    }
+    .meta {
+      font-size: 12px;
+      color: #9ca3af;
+      margin-bottom: 16px;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(59,130,246,0.15);
+      color: #bfdbfe;
+      border-radius: 999px;
+      padding: 2px 10px;
+      font-size: 11px;
+      margin-bottom: 16px;
+    }
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 18px;
+    }
+    button {
+      border-radius: 999px;
+      border: none;
+      padding: 8px 16px;
+      font-size: 14px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .btn-primary {
+      background: #3b82f6;
+      color: white;
+    }
+    .btn-ghost {
+      background: transparent;
+      color: #e5e7eb;
+      border: 1px solid #374151;
+    }
+    .notice {
+      font-size: 12px;
+      color: #9ca3af;
+      margin-top: 16px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="badge">
+      <span>🔒 Secure Viewer Active</span>
+    </div>
+    <h1>${documentName}</h1>
+    <div class="meta">
+      Document ID: ${documentId}<br/>
+      Recipient ID: ${recipientId}
+    </div>
+    <p>
+      The actual document content would be embedded here (for example via
+      a PDF viewer or secure iframe).
+    </p>
+    <p>
+      All interactions on this page are being tracked: opens, page views,
+      downloads, prints, and forwards.
+    </p>
+    <div class="actions">
+      <button class="btn-primary" onclick="handleOpen()">
+        📄 Open Document
+      </button>
+      <button class="btn-ghost" onclick="handleDownload()">
+        ⬇️ Download
+      </button>
+      <button class="btn-ghost" onclick="handlePrint()">
+        🖨️ Print
+      </button>
+    </div>
+    <div class="notice">
+      ⚠️ For production, replace this placeholder with a real embedded PDF / file
+      viewer and wire the buttons to your actual download/print logic.
+    </div>
+  </div>
+
+  <script src="/pdf-client-tracker.js"></script>
+  <script>
+    // Initialize tracker with same server URL & IDs used in the email
+    const tracker = new PDFClientTracker({
+      serverUrl: '${SERVER_URL}',
+      documentId: '${documentId}',
+      recipientId: '${recipientId}'
+    });
+
+    // Track that the document viewer itself was opened
+    document.addEventListener('DOMContentLoaded', () => {
+      tracker.trackDocumentOpen();
+    });
+
+    function handleOpen() {
+      // You would open your real PDF/viewer here
+      tracker.trackPageView(1); // example: first page viewed
+      alert('Document "opened" (demo). Tracking event sent.');
+    }
+
+    function handleDownload() {
+      tracker.trackDownload();
+      alert('Download tracked (demo). Wire this to a real file.');
+      // window.location.href = '/path/to/real.pdf';
+    }
+
+    function handlePrint() {
+      tracker.trackPrint();
+      alert('Print tracked (demo).');
+      // window.print();
+    }
+  </script>
+</body>
+</html>
+  `);
+});
+
 
 // ============================================
 // START SERVER
